@@ -5,7 +5,7 @@ TestNG. Instead of a few hand-picked examples, each test states a rule that must
 ("the shares add up to the total"), and QuickTheories checks it on 1,000 generated inputs per run. When a rule
 breaks, it **shrinks** the failing input to the smallest one that still fails.
 
-**28 tests, 0 failures**, about 11 seconds (Java 21, QuickTheories 0.26, TestNG 7.12). The weekly CI run checks
+**27 tests, 0 failures**, about 11 seconds (Java 21, QuickTheories 0.26, TestNG 7.12). The weekly CI run checks
 20,000 inputs per property (about 24 seconds locally).
 
 This complements [pit-mutation-testing](https://github.com/niranjankagri/pit-mutation-testing): PIT changes the
@@ -68,12 +68,20 @@ Uniformly random inputs rarely hit the cases that matter, so the generators in
 ## Limits found on real runs
 
 QuickTheories 0.26 is from March 2019 and the project has had no commits since 2020. It works on Java 21 and with
-TestNG 7.12 here, but two shrinking limits showed up and are pinned in tests:
+TestNG 7.12 here, but shrinking has limits:
 
 | What | Observed (seed 20261111) | What to do |
 |---|---|---|
-| A generator built with `mix()` shrinks less far | The codec bug shrinks to `aaaa1` with `texts()` (= `anyText().mix(runs())`), but to `1` with `runs()` alone. The calendar bug: 6 slots with the mixed `bookings()`, 2 with `busyMorningBookings()`. More shrink cycles (10,000 or 1,000,000) gave the same results | Keep the mixed generators for finding bugs; when one fails, re-run with a single-source generator to get a small example |
+| A generator built with `mix()` can stop shrinking early, and **where it stops depends on the JDK** | The codec bug with the mixed `texts()` (= `anyText().mix(runs())`): `aaaa1` on Java 27 locally, `1` on Java 21 in CI. The calendar bug with the mixed `bookings()`: 6 slots on Java 27. With single-source generators (`runs()`, `busyMorningBookings()`) the minimal example came out on both JDKs, so the demos use those. More shrink cycles (10,000 or 1,000,000) did not change the Java 27 results | Keep the mixed generators for finding bugs; when one fails, re-run with a single-source generator to get a small example. Do not pin a shrunk value from a mixed generator in a test (the first version of this repo did, and CI on another JDK disagreed) |
 | Numbers shrink close to the edge, not always onto it | `i < 900000` failed; the shrunk value was 900,003 (900,007 with another seed), not 900,000 | Read the shrunk value as "near here", then write the exact boundary as an example test |
+
+## Gotchas found while building it
+
+| Problem | Fix |
+|---|---|
+| The first CI run was green although a test had failed | `./mvnw test \| tee maven.log` returns `tee`'s exit code. GitHub's default `bash -e` has no `pipefail`; the step now sets it |
+| A shrunk value pinned on Java 27 differed on Java 21 | Pinned only values from single-source generators (see Limits) |
+| "Bad input only throws IllegalArgumentException" needed real limits | `RunLengthCodec` now refuses runs over 7 digits and non-ASCII digits (`Character.isDigit` accepts other scripts' digits) |
 
 ## Reproducing a failure
 
@@ -98,7 +106,7 @@ Run again with that seed to get the same inputs (checked: the same seed gave the
 Needs Java 21+.
 
 ```bash
-./mvnw test                          # 28 tests, 1,000 examples per property
+./mvnw test                          # 27 tests, 1,000 examples per property
 ./mvnw test -Dqt.examples=20000      # deeper, like the weekly CI run
 ./mvnw test -Dtest=ShrinkingDemoTest # the shrinking demos; table in target/shrinking-report.md
 ```

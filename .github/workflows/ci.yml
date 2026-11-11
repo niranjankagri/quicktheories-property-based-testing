@@ -39,7 +39,10 @@ jobs:
           cache: maven
 
       - name: Tests (${{ env.EXAMPLES }} examples per property)
-        run: ./mvnw -B test -Dqt.examples="$EXAMPLES" | tee maven.log
+        # pipefail: without it the pipe returns tee's exit code and a failing test leaves the job green
+        run: |
+          set -o pipefail
+          ./mvnw -B test -Dqt.examples="$EXAMPLES" | tee maven.log
 
       - name: Summary
         if: always()

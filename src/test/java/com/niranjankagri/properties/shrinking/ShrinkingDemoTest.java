@@ -19,7 +19,6 @@ import java.util.regex.Pattern;
 import static com.niranjankagri.properties.generators.MoneyGen.amountsInCents;
 import static com.niranjankagri.properties.generators.MoneyGen.people;
 import static com.niranjankagri.properties.generators.TextGen.runs;
-import static com.niranjankagri.properties.generators.TextGen.texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.quicktheories.generators.SourceDSL.integers;
@@ -106,16 +105,6 @@ public class ShrinkingDemoTest {
 
         // "1" encodes to "11", which the draft reads as a run of eleven with no character after it
         assertThat(smallest(failure, "Run-length codec: decode(encode(text)) must give the text back")).isEqualTo("1");
-    }
-
-    @Test(description = "Limitation: a generator built with mix() shrinks less far (same bug, same seed: aaaa1, not 1)")
-    public void mixedGeneratorShrinksLessFar() {
-        // texts() is anyText().mix(runs()). The failure is found, but shrinking stops at a longer example.
-        AssertionError failure = catchThrowableOfType(AssertionError.class, () -> theory()
-                .forAll(texts())
-                .checkAssert(text -> assertThat(naiveDecode(naiveEncode(text))).isEqualTo(text)));
-
-        assertThat(smallest(failure, "Same codec property, mixed generator texts()")).isEqualTo("aaaa1");
     }
 
     // ---- 3. Calendar that does not merge touching slots ---------------------------------------------------------
